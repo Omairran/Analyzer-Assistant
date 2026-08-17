@@ -1,0 +1,1 @@
+Create an e-commerce website where users can buy shoes. We need an admin panel and a postgres database.
