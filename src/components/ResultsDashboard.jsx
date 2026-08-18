@@ -29,6 +29,12 @@ const ResultsDashboard = ({ result, fileName }) => {
 
       <div className="tabs-container">
         <button 
+          className={`tab-btn ${activeTab === 'text' ? 'active' : ''}`}
+          onClick={() => setActiveTab('text')}
+        >
+          Parsed Document Text
+        </button>
+        <button 
           className={`tab-btn ${activeTab === 'overview' ? 'active' : ''}`}
           onClick={() => setActiveTab('overview')}
         >
@@ -55,6 +61,32 @@ const ResultsDashboard = ({ result, fileName }) => {
       </div>
 
       <div className="tab-content">
+        {activeTab === 'text' && (
+          <div className="glass-panel section-card">
+            <div className="section-header">
+              <FileText className="section-icon" size={20} />
+              <h3>Parsed Document Text (FastAPI Extraction)</h3>
+            </div>
+            {result.wordCount && (
+              <div style={{ marginBottom: '1rem', color: 'var(--text-muted)', fontSize: '0.9rem' }}>
+                Words: <strong style={{ color: 'var(--primary-color)' }}>{result.wordCount}</strong> | Characters: <strong style={{ color: 'var(--secondary-color)' }}>{result.charCount}</strong>
+              </div>
+            )}
+            <pre style={{ 
+              whiteSpace: 'pre-wrap', 
+              background: 'rgba(0,0,0,0.2)', 
+              padding: '1rem', 
+              borderRadius: '8px', 
+              fontSize: '0.95rem',
+              color: 'var(--text-main)',
+              maxHeight: '400px',
+              overflowY: 'auto'
+            }}>
+              {result.extractedText || "No text parsed yet."}
+            </pre>
+          </div>
+        )}
+
         {activeTab === 'overview' && (
           <div className="results-grid">
             <div className="glass-panel section-card" style={{ gridColumn: '1 / -1' }}>
