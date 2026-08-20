@@ -19,13 +19,45 @@ const ResultsDashboard = ({ result, fileName }) => {
           <FileText className="file-icon" size={24} />
           <div>
             <div className="file-name">{fileName || "requirement_document.pdf"}</div>
-            <div className="file-size">Analysis Complete</div>
+            <div className="file-size" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.25rem' }}>
+              {result.isLiveAI ? (
+                <span style={{ background: 'rgba(34, 197, 94, 0.2)', color: '#4ade80', padding: '0.2rem 0.6rem', borderRadius: '12px', fontSize: '0.8rem', border: '1px solid rgba(34, 197, 94, 0.4)' }}>
+                  ✨ Powered by Live Gemini AI
+                </span>
+              ) : (
+                <span style={{ background: 'rgba(245, 158, 11, 0.2)', color: '#fbbf24', padding: '0.2rem 0.6rem', borderRadius: '12px', fontSize: '0.8rem', border: '1px solid rgba(245, 158, 11, 0.4)' }}>
+                  ⚠️ Mock Data Fallback (API Key 403 Error)
+                </span>
+              )}
+            </div>
           </div>
         </div>
         <button className="btn btn-secondary" style={{ padding: '0.5rem 1rem', fontSize: '0.875rem' }}>
           <Download size={16} /> Export JSON
         </button>
       </div>
+
+      {!result.isLiveAI && (
+        <div style={{
+          background: 'rgba(245, 158, 11, 0.12)',
+          border: '1px solid rgba(245, 158, 11, 0.3)',
+          color: '#fbbf24',
+          padding: '0.875rem 1.25rem',
+          borderRadius: '10px',
+          marginBottom: '1.5rem',
+          fontSize: '0.9rem',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '0.75rem'
+        }}>
+          <AlertCircle size={20} style={{ flexShrink: 0 }} />
+          <span>
+            <strong>Note:</strong> Showing fallback mock analysis because the Gemini API Key in <code>backend/.env</code> returned <code>403 PERMISSION_DENIED</code>. 
+            To see real AI analysis, get a free key from <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer" style={{ color: '#60a5fa', textDecoration: 'underline' }}>Google AI Studio</a> (starts with <code>AIzaSy...</code>) and paste it into <code>backend/.env</code>.
+          </span>
+        </div>
+      )}
+
 
       <div className="tabs-container">
         <button 
@@ -113,7 +145,25 @@ const ResultsDashboard = ({ result, fileName }) => {
                 ))}
               </ul>
             </div>
+
+            {result.edgeCases && result.edgeCases.length > 0 && (
+              <div className="glass-panel section-card" style={{ gridColumn: '1 / -1' }}>
+                <div className="section-header">
+                  <AlertCircle className="section-icon" size={20} style={{ color: '#f59e0b' }} />
+                  <h3>Detected Edge Cases & Missing Requirements</h3>
+                </div>
+                <ul className="criteria-list">
+                  {result.edgeCases.map((edgeCase, idx) => (
+                    <li key={idx}>
+                      <AlertCircle className="check-icon" size={18} style={{ color: '#f59e0b' }} />
+                      <span>{edgeCase}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
           </div>
+
         )}
 
         {activeTab === 'tasks' && (

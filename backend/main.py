@@ -3,6 +3,9 @@ from fastapi import FastAPI, File, UploadFile, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from parser import extract_text_from_file
+from ai_service import analyze_requirements_with_gemini
+from typing import Optional, Dict, Any
+
 
 app = FastAPI(
     title="AI Requirement Analyzer API",
@@ -26,6 +29,7 @@ class UploadResponse(BaseModel):
     word_count: int
     char_count: int
     extracted_text: str
+    analysis: Optional[Dict[str, Any]] = None
     message: str
 
 @app.get("/")
@@ -41,7 +45,7 @@ def read_root():
 async def upload_file(file: UploadFile = File(...)):
     """
     Accepts file upload (PDF, Word DOCX, Text), parses text content,
-    and returns structured document metadata.
+    runs Gemini AI analysis if API key is set, and returns structured analysis.
     """
     if not file:
         raise HTTPException(status_code=400, detail="No file uploaded.")
@@ -53,6 +57,12 @@ async def upload_file(file: UploadFile = File(...)):
     word_count = len(words)
     char_count = len(extracted_text)
     
+    ai_analysis = None
+    try:
+        ai_analysis = analyze_requirements_with_gemini(extracted_text)
+    except Exception as e:
+        print(f"[Notice] Gemini API call skipped or failed: {str(e)}")
+    
     return UploadResponse(
         filename=file.filename,
         content_type=file.content_type or "unknown",
@@ -60,8 +70,10 @@ async def upload_file(file: UploadFile = File(...)):
         word_count=word_count,
         char_count=char_count,
         extracted_text=extracted_text,
-        message="File uploaded and parsed successfully."
+        analysis=ai_analysis,
+        message="File uploaded and processed successfully."
     )
+
 
 if __name__ == "__main__":
     import uvicorn

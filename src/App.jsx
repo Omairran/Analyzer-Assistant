@@ -66,9 +66,12 @@ function App() {
       }
 
       const parseData = await response.json();
+      const hasLiveAnalysis = Boolean(parseData.analysis);
+      const aiResult = parseData.analysis || mockAnalysisData;
 
       setResult({
-        ...mockAnalysisData,
+        ...aiResult,
+        isLiveAI: hasLiveAnalysis,
         extractedText: parseData.extracted_text,
         wordCount: parseData.word_count,
         charCount: parseData.char_count,
@@ -79,12 +82,14 @@ function App() {
       // Fallback for standalone demo mode
       setResult({
         ...mockAnalysisData,
-        extractedText: `[Uploaded File: ${file.name}]\n\nRequirement Document Content:\nThis e-commerce platform document outlines user registration, product browsing, shopping cart implementation, payment gateway integration, and admin portal requirements.`,
+        isLiveAI: false,
+        extractedText: `[Uploaded File: ${file.name}]\n\nRequirement Document Content:\nThis document outlines user registration, product browsing, shopping cart implementation, payment gateway integration, and admin portal requirements.`,
         wordCount: 350,
         charCount: 2200,
         fileName: file.name,
       });
-    } finally {
+    }
+ finally {
       setAnalyzing(false);
     }
   };
