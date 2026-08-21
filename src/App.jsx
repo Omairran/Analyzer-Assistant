@@ -1,7 +1,9 @@
 import { useState } from 'react';
-import { UploadCloud, FileText, Settings, Loader2 } from 'lucide-react';
+import { UploadCloud, FileText, Settings, History, Layers } from 'lucide-react';
 import UploadSection from './components/UploadSection';
 import ResultsDashboard from './components/ResultsDashboard';
+import HistoryDashboard from './components/HistoryDashboard';
+import { exportToPDF, exportToJSON } from './utils/exportHelpers';
 
 // Mock JSON analysis response
 const mockAnalysisData = {
@@ -35,6 +37,7 @@ const mockAnalysisData = {
 };
 
 function App() {
+  const [activeView, setActiveView] = useState('upload'); // 'upload' | 'history'
   const [file, setFile] = useState(null);
   const [analyzing, setAnalyzing] = useState(false);
   const [result, setResult] = useState(null);
@@ -92,7 +95,6 @@ function App() {
         setResult(null);
       } else {
         console.warn("FastAPI service offline or error, using mock fallback:", err.message);
-        // Fallback for standalone demo mode
         setResult({
           ...mockAnalysisData,
           isLiveAI: false,
@@ -107,6 +109,19 @@ function App() {
     }
   };
 
+  const handleSelectHistoryRecord = (record) => {
+    setResult({
+      ...(record.analysis || mockAnalysisData),
+      isLiveAI: true,
+      extractedText: record.extracted_text,
+      wordCount: record.word_count,
+      charCount: record.char_count,
+      fileName: record.filename,
+    });
+    setFile({ name: record.filename });
+    setActiveView('upload');
+  };
+
   const handleReset = () => {
     setFile(null);
     setResult(null);
@@ -116,58 +131,80 @@ function App() {
   return (
     <div className="app-container">
       <header className="app-header">
-        <div className="brand">
+        <div className="brand" style={{ cursor: 'pointer' }} onClick={() => { setActiveView('upload'); handleReset(); }}>
           <Settings size={28} />
           <span>AI Requirement Analyzer</span>
         </div>
-        
-        {file && !analyzing && !result && (
-          <button className="btn btn-primary" onClick={handleAnalyze}>
-            <Settings size={18} />
-            Analyze Requirements
+
+        {/* View Toggle Tabs */}
+        <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+          <button 
+            className={`btn ${activeView === 'upload' ? 'btn-primary' : 'btn-secondary'}`}
+            onClick={() => setActiveView('upload')}
+            style={{ padding: '0.5rem 1rem', fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+          >
+            <UploadCloud size={16} /> New Analysis
           </button>
-        )}
-        
-        {result && (
-          <button className="btn btn-secondary" onClick={handleReset}>
-            Analyze New Document
+          
+          <button 
+            className={`btn ${activeView === 'history' ? 'btn-primary' : 'btn-secondary'}`}
+            onClick={() => setActiveView('history')}
+            style={{ padding: '0.5rem 1rem', fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+          >
+            <History size={16} /> Saved Records (MongoDB)
           </button>
-        )}
+
+          {result && activeView === 'upload' && (
+            <button className="btn btn-secondary" onClick={handleReset} style={{ padding: '0.5rem 1rem', fontSize: '0.875rem' }}>
+              Analyze New File
+            </button>
+          )}
+        </div>
       </header>
 
       <main className="main-content">
-        {!file && !analyzing && !result && (
-          <UploadSection onUpload={handleFileUpload} error={error} />
-        )}
+        {activeView === 'history' ? (
+          <HistoryDashboard 
+            onSelectRecord={handleSelectHistoryRecord}
+            onDownloadPDF={exportToPDF}
+            onDownloadJSON={exportToJSON}
+          />
+        ) : (
+          <>
+            {!file && !analyzing && !result && (
+              <UploadSection onUpload={handleFileUpload} error={error} />
+            )}
 
-        {file && !analyzing && !result && (
-          <div className="glass-panel" style={{ padding: '3rem', textAlign: 'center', margin: 'auto', width: '100%', maxWidth: '600px' }}>
-            <FileText size={64} style={{ color: 'var(--primary-color)', margin: '0 auto 1.5rem auto' }} />
-            <h2>Ready to Analyze</h2>
-            <p>"{file.name}" is loaded and ready for AI processing.</p>
-            {error && (
-              <div style={{ marginTop: '1.5rem', padding: '1rem', background: 'rgba(239, 68, 68, 0.1)', border: '1px solid var(--danger-color)', borderRadius: '8px', color: 'var(--danger-color)', textAlign: 'center', fontWeight: '500' }}>
-                {error}
+            {file && !analyzing && !result && (
+              <div className="glass-panel" style={{ padding: '3rem', textAlign: 'center', margin: 'auto', width: '100%', maxWidth: '600px' }}>
+                <FileText size={64} style={{ color: 'var(--primary-color)', margin: '0 auto 1.5rem auto' }} />
+                <h2>Ready to Analyze</h2>
+                <p>"{file.name}" is loaded and ready for AI processing.</p>
+                {error && (
+                  <div style={{ marginTop: '1.5rem', padding: '1rem', background: 'rgba(239, 68, 68, 0.1)', border: '1px solid var(--danger-color)', borderRadius: '8px', color: 'var(--danger-color)', textAlign: 'center', fontWeight: '500' }}>
+                    {error}
+                  </div>
+                )}
+                <div style={{ marginTop: '2rem' }}>
+                   <button className="btn btn-primary" onClick={handleAnalyze} style={{ width: '100%' }}>
+                    Start Analysis Process
+                  </button>
+                </div>
               </div>
             )}
-            <div style={{ marginTop: '2rem' }}>
-               <button className="btn btn-primary" onClick={handleAnalyze} style={{ width: '100%' }}>
-                Start Analysis Process
-              </button>
-            </div>
-          </div>
-        )}
 
-        {analyzing && (
-          <div className="loader-container">
-            <div className="spinner"></div>
-            <h3>Analyzing Document with AI...</h3>
-            <p>Extracting requirements, generating tasks, and designing database schema.</p>
-          </div>
-        )}
+            {analyzing && (
+              <div className="loader-container">
+                <div className="spinner"></div>
+                <h3>Analyzing Document with AI...</h3>
+                <p>Extracting requirements, generating tasks, and designing database schema.</p>
+              </div>
+            )}
 
-        {result && !analyzing && (
-          <ResultsDashboard result={result} fileName={file?.name} />
+            {result && !analyzing && (
+              <ResultsDashboard result={result} fileName={file?.name} />
+            )}
+          </>
         )}
       </main>
     </div>
