@@ -62,7 +62,10 @@ function App() {
 
       if (!response.ok) {
         const errJson = await response.json().catch(() => ({ detail: 'Upload error' }));
-        throw new Error(errJson.detail || 'Backend API error during document parsing.');
+        const errorMsg = errJson.detail || 'Backend API error during document parsing.';
+        const apiErr = new Error(errorMsg);
+        apiErr.status = response.status;
+        throw apiErr;
       }
 
       const parseData = await response.json();
@@ -78,18 +81,28 @@ function App() {
         fileName: parseData.filename,
       });
     } catch (err) {
-      console.warn("FastAPI service offline or error, using mock fallback:", err.message);
-      // Fallback for standalone demo mode
-      setResult({
-        ...mockAnalysisData,
-        isLiveAI: false,
-        extractedText: `[Uploaded File: ${file.name}]\n\nRequirement Document Content:\nThis document outlines user registration, product browsing, shopping cart implementation, payment gateway integration, and admin portal requirements.`,
-        wordCount: 350,
-        charCount: 2200,
-        fileName: file.name,
-      });
-    }
- finally {
+      const isServerBusy = 
+        err.status === 503 || 
+        err.message?.includes("Server is busy") || 
+        err.message?.includes("503") || 
+        err.message?.includes("UNAVAILABLE");
+
+      if (isServerBusy) {
+        setError("⚠️ Server is busy. Please try again in a few moments.");
+        setResult(null);
+      } else {
+        console.warn("FastAPI service offline or error, using mock fallback:", err.message);
+        // Fallback for standalone demo mode
+        setResult({
+          ...mockAnalysisData,
+          isLiveAI: false,
+          extractedText: `[Uploaded File: ${file.name}]\n\nRequirement Document Content:\nThis document outlines user registration, product browsing, shopping cart implementation, payment gateway integration, and admin portal requirements.`,
+          wordCount: 350,
+          charCount: 2200,
+          fileName: file.name,
+        });
+      }
+    } finally {
       setAnalyzing(false);
     }
   };
@@ -132,6 +145,11 @@ function App() {
             <FileText size={64} style={{ color: 'var(--primary-color)', margin: '0 auto 1.5rem auto' }} />
             <h2>Ready to Analyze</h2>
             <p>"{file.name}" is loaded and ready for AI processing.</p>
+            {error && (
+              <div style={{ marginTop: '1.5rem', padding: '1rem', background: 'rgba(239, 68, 68, 0.1)', border: '1px solid var(--danger-color)', borderRadius: '8px', color: 'var(--danger-color)', textAlign: 'center', fontWeight: '500' }}>
+                {error}
+              </div>
+            )}
             <div style={{ marginTop: '2rem' }}>
                <button className="btn btn-primary" onClick={handleAnalyze} style={{ width: '100%' }}>
                 Start Analysis Process

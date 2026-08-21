@@ -18,6 +18,27 @@ Analyze the following requirement text extracted from a software document and ou
 IMPORTANT: Return ONLY valid, raw JSON matching this structure. Do not include markdown formatting or extra text outside the JSON.
 """
 
+class GeminiServerBusyError(Exception):
+    """Exception raised when Gemini API returns 503 / UNAVAILABLE error."""
+    pass
+
+def is_503_error(e: Exception) -> bool:
+    if isinstance(e, GeminiServerBusyError):
+        return True
+    
+    err_str = str(e).upper()
+    code = getattr(e, 'code', None) or getattr(e, 'status_code', None) or getattr(e, 'http_status', None)
+    status = getattr(e, 'status', None)
+    
+    if code == 503 or status == 503 or status == 'UNAVAILABLE':
+        return True
+        
+    keywords = ["503", "UNAVAILABLE", "MODEL IS BUSY", "SERVER IS BUSY", "OVERLOADED"]
+    if any(keyword in err_str for keyword in keywords):
+        return True
+        
+    return False
+
 def analyze_requirements_with_gemini(text: str) -> dict:
     """
     Sends requirement text to Gemini API and returns structured JSON analysis.
@@ -28,8 +49,6 @@ def analyze_requirements_with_gemini(text: str) -> dict:
     if not api_key or api_key == "your_gemini_api_key_here":
         raise ValueError("GEMINI_API_KEY environment variable is not set in backend/.env")
 
-
-    
     try:
         from google import genai
         client = genai.Client(api_key=api_key)
@@ -51,10 +70,14 @@ def analyze_requirements_with_gemini(text: str) -> dict:
                     break
             except Exception as err:
                 last_err = err
+                if is_503_error(err):
+                    raise GeminiServerBusyError("⚠️ Server is busy. Please try again in a few moments.") from err
                 continue
 
         if not response or not response.text:
             if last_err:
+                if is_503_error(last_err):
+                    raise GeminiServerBusyError("⚠️ Server is busy. Please try again in a few moments.") from last_err
                 raise last_err
             raise ValueError("No response returned from Gemini API.")
         
@@ -71,7 +94,11 @@ def analyze_requirements_with_gemini(text: str) -> dict:
         data = json.loads(raw_text.strip())
         return data
         
+    except GeminiServerBusyError:
+        raise
     except Exception as e:
+        if is_503_error(e):
+            raise GeminiServerBusyError("⚠️ Server is busy. Please try again in a few moments.") from e
         err_msg = str(e)
         print(f"[Warning] Gemini API call returned error: {err_msg}")
         raise e

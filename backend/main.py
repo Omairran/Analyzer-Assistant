@@ -3,10 +3,10 @@ from fastapi import FastAPI, File, UploadFile, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from parser import extract_text_from_file
-from ai_service import analyze_requirements_with_gemini
+from ai_service import analyze_requirements_with_gemini, GeminiServerBusyError, is_503_error
 from typing import Optional, Dict, Any
-
-
+ 
+ 
 app = FastAPI(
     title="AI Requirement Analyzer API",
     description="Backend microservice for document parsing and AI analysis",
@@ -60,7 +60,12 @@ async def upload_file(file: UploadFile = File(...)):
     ai_analysis = None
     try:
         ai_analysis = analyze_requirements_with_gemini(extracted_text)
-    except Exception as e:
+    except (GeminiServerBusyError, Exception) as e:
+        if is_503_error(e):
+            raise HTTPException(
+                status_code=503,
+                detail="⚠️ Server is busy. Please try again in a few moments."
+            )
         print(f"[Notice] Gemini API call skipped or failed: {str(e)}")
     
     return UploadResponse(
