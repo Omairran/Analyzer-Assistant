@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from parser import extract_text_from_file
 from ai_service import analyze_requirements_with_gemini, GeminiServerBusyError, is_503_error
-from database import save_analysis, get_all_analyses
+from database import save_analysis, get_all_analyses, delete_analysis, rename_analysis
 from typing import Optional, Dict, Any
 
 
@@ -33,6 +33,9 @@ class UploadResponse(BaseModel):
     extracted_text: str
     analysis: Optional[Dict[str, Any]] = None
     message: str
+
+class RenamePayload(BaseModel):
+    filename: str
 
 @app.get("/")
 def read_root():
@@ -96,7 +99,7 @@ async def upload_file(file: UploadFile = File(...)):
     )
 
 @app.get("/api/history")
-def get_history(limit: int = 20):
+def get_history(limit: int = 50):
     """
     Retrieves past requirement analyses stored in MongoDB Atlas.
     """
@@ -106,8 +109,30 @@ def get_history(limit: int = 20):
         "history": records
     }
 
+@app.delete("/api/history/{record_id}")
+def delete_history_record(record_id: str):
+    """
+    Deletes a specific requirement analysis record from MongoDB.
+    """
+    success = delete_analysis(record_id)
+    if not success:
+        raise HTTPException(status_code=404, detail="Record not found or delete failed.")
+    return {"message": "Record deleted successfully.", "id": record_id}
+
+@app.patch("/api/history/{record_id}")
+def rename_history_record(record_id: str, payload: RenamePayload):
+    """
+    Renames a specific requirement analysis record's filename in MongoDB.
+    """
+    if not payload.filename or not payload.filename.strip():
+        raise HTTPException(status_code=400, detail="Filename cannot be empty.")
+        
+    success = rename_analysis(record_id, payload.filename.strip())
+    if not success:
+        raise HTTPException(status_code=404, detail="Record not found or rename failed.")
+    return {"message": "Record renamed successfully.", "id": record_id, "filename": payload.filename.strip()}
+
 
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("main:app", host="127.0.0.1", port=8000, reload=True)
-

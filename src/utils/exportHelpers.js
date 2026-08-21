@@ -1,4 +1,5 @@
 import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 export const exportToJSON = (result, fileName) => {
   const jsonString = JSON.stringify(result, null, 2);
@@ -16,100 +17,214 @@ export const exportToJSON = (result, fileName) => {
 
 export const exportToPDF = (result, fileName) => {
   if (!result) return;
-  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+  const doc = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
   const cleanName = (fileName || 'requirement_document').replace(/\.[^/.]+$/, '');
   
-  // Title & Header
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const margin = 14;
+  const contentWidth = pageWidth - (margin * 2);
+  let y = 18;
+
+  // Header Banner
+  doc.setFillColor(30, 41, 59); // Slate dark background
+  doc.rect(0, 0, pageWidth, 32, 'F');
+
+  // App & Report Title
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(18);
-  doc.setTextColor(30, 41, 59);
-  doc.text('AI Requirement Analysis Report', 14, 20);
+  doc.setFontSize(16);
+  doc.setTextColor(255, 255, 255);
+  doc.text('AI REQUIREMENT ANALYSIS REPORT', margin, 15);
 
-  doc.setFontSize(10);
+  // Metadata Subtitle
   doc.setFont('helvetica', 'normal');
-  doc.setTextColor(100, 116, 139);
-  doc.text(`Document: ${fileName || 'Requirement Document'} | Generated: ${new Date().toLocaleDateString()}`, 14, 27);
-  
-  doc.setDrawColor(226, 232, 240);
-  doc.line(14, 31, 196, 31);
+  doc.setFontSize(9);
+  doc.setTextColor(203, 213, 225); // Slate 300
+  const formattedDate = new Date().toLocaleString(undefined, {
+    year: 'numeric', month: 'short', day: 'numeric',
+    hour: '2-digit', minute: '2-digit'
+  });
+  doc.text(`Document: ${fileName || 'Requirement Document'}   |   Generated: ${formattedDate}`, margin, 24);
 
-  let y = 40;
+  y = 42;
 
-  const checkPageBreak = (neededHeight = 10) => {
-    if (y + neededHeight > 280) {
+  const checkSpace = (neededHeight) => {
+    if (y + neededHeight > 275) {
       doc.addPage();
       y = 20;
     }
   };
 
-  const addHeading = (titleText) => {
-    checkPageBreak(12);
+  const addSectionTitle = (titleText) => {
+    checkSpace(12);
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(13);
-    doc.setTextColor(79, 70, 229);
-    doc.text(titleText, 14, y);
-    y += 7;
+    doc.setFontSize(12);
+    doc.setTextColor(79, 70, 229); // Primary Indigo
+    doc.text(titleText, margin, y);
+    doc.setDrawColor(226, 232, 240);
+    doc.line(margin, y + 2, margin + contentWidth, y + 2);
+    y += 8;
   };
 
-  const addParagraph = (text) => {
-    if (!text) return;
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(10);
-    doc.setTextColor(51, 65, 85);
-    const lines = doc.splitTextToSize(text, 180);
-    lines.forEach((line) => {
-      checkPageBreak(6);
-      doc.text(line, 14, y);
-      y += 5.5;
-    });
-    y += 2;
-  };
-
-  // Executive Summary
+  // 1. Executive Summary
   if (result.summary) {
-    addHeading('1. Executive Summary');
-    addParagraph(result.summary);
+    addSectionTitle('1. Executive Summary');
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9.5);
+    doc.setTextColor(51, 65, 85);
+    
+    const summaryLines = doc.splitTextToSize(result.summary, contentWidth);
+    summaryLines.forEach((line) => {
+      checkSpace(6);
+      doc.text(line, margin, y);
+      y += 5;
+    });
+    y += 4;
   }
 
-  // Acceptance Criteria
+  // 2. Acceptance Criteria
   if (result.acceptanceCriteria && result.acceptanceCriteria.length > 0) {
-    addHeading('2. Acceptance Criteria');
+    addSectionTitle('2. Acceptance Criteria');
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9.5);
+    doc.setTextColor(51, 65, 85);
+
     result.acceptanceCriteria.forEach((item, idx) => {
-      addParagraph(`[✓] ${idx + 1}. ${item}`);
+      const text = `[✓]  ${idx + 1}.  ${item}`;
+      const lines = doc.splitTextToSize(text, contentWidth - 4);
+      lines.forEach((line) => {
+        checkSpace(5.5);
+        doc.text(line, margin + 2, y);
+        y += 5;
+      });
+      y += 1.5;
     });
+    y += 4;
   }
 
-  // Development Tasks
+  // 3. Development Tasks Table
   if (result.tasks && result.tasks.length > 0) {
-    addHeading('3. Development Tasks');
-    result.tasks.forEach((t) => {
-      addParagraph(`• ${t.title} [Complexity: ${t.complexity}]`);
+    addSectionTitle('3. Generated Development Tasks');
+    
+    const tableBody = result.tasks.map((t, index) => [
+      `${index + 1}. ${t.title}`,
+      t.complexity || 'Medium'
+    ]);
+
+    autoTable(doc, {
+      startY: y,
+      margin: { left: margin, right: margin },
+      head: [['Task Description', 'Complexity']],
+      body: tableBody,
+      headStyles: { fillColor: [79, 70, 229], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 9.5 },
+      bodyStyles: { textColor: [51, 65, 85], fontSize: 9 },
+      columnStyles: {
+        0: { cellWidth: 'auto' },
+        1: { cellWidth: 35, fontStyle: 'bold', halign: 'center' }
+      },
+      didParseCell: (data) => {
+        if (data.section === 'body' && data.column.index === 1) {
+          const val = String(data.cell.raw).toLowerCase();
+          if (val === 'high') data.cell.styles.textColor = [225, 29, 72]; // red
+          else if (val === 'medium') data.cell.styles.textColor = [217, 119, 6]; // amber
+          else if (val === 'low') data.cell.styles.textColor = [16, 185, 129]; // green
+        }
+      },
+      theme: 'grid'
     });
+
+    y = doc.lastAutoTable.finalY + 8;
   }
 
-  // Database Schema
+  // 4. Database Schema Table
   if (result.dbTables && result.dbTables.length > 0) {
-    addHeading('4. Database Schema');
-    result.dbTables.forEach((t) => {
-      addParagraph(`Table: ${t.name}`);
-      addParagraph(`  Columns: ${t.columns ? t.columns.join(', ') : 'N/A'}`);
+    addSectionTitle('4. Suggested Database Schema');
+    
+    const tableBody = result.dbTables.map((t) => [
+      t.name,
+      Array.isArray(t.columns) ? t.columns.join(', ') : (t.columns || 'N/A')
+    ]);
+
+    autoTable(doc, {
+      startY: y,
+      margin: { left: margin, right: margin },
+      head: [['Table Name', 'Columns & Attributes']],
+      body: tableBody,
+      headStyles: { fillColor: [30, 41, 59], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 9.5 },
+      bodyStyles: { textColor: [51, 65, 85], fontSize: 9 },
+      columnStyles: {
+        0: { cellWidth: 45, fontStyle: 'bold' },
+        1: { cellWidth: 'auto' }
+      },
+      theme: 'grid'
     });
+
+    y = doc.lastAutoTable.finalY + 8;
   }
 
-  // APIs
+  // 5. REST API Endpoints Table
   if (result.apis && result.apis.length > 0) {
-    addHeading('5. REST API Endpoints');
-    result.apis.forEach((api) => {
-      addParagraph(`[${api.method}] ${api.endpoint} - ${api.description}`);
+    addSectionTitle('5. REST API Endpoints');
+
+    const tableBody = result.apis.map((api) => [
+      api.method || 'GET',
+      api.endpoint || '/',
+      api.description || ''
+    ]);
+
+    autoTable(doc, {
+      startY: y,
+      margin: { left: margin, right: margin },
+      head: [['Method', 'Endpoint Path', 'Description']],
+      body: tableBody,
+      headStyles: { fillColor: [15, 23, 42], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 9.5 },
+      bodyStyles: { textColor: [51, 65, 85], fontSize: 9 },
+      columnStyles: {
+        0: { cellWidth: 25, fontStyle: 'bold', halign: 'center' },
+        1: { cellWidth: 55, fontStyle: 'bold' },
+        2: { cellWidth: 'auto' }
+      },
+      didParseCell: (data) => {
+        if (data.section === 'body' && data.column.index === 0) {
+          const method = String(data.cell.raw).toUpperCase();
+          if (method === 'POST') data.cell.styles.textColor = [16, 185, 129];
+          else if (method === 'GET') data.cell.styles.textColor = [37, 99, 235];
+          else if (method === 'PUT' || method === 'PATCH') data.cell.styles.textColor = [217, 119, 6];
+          else if (method === 'DELETE') data.cell.styles.textColor = [225, 29, 72];
+        }
+      },
+      theme: 'grid'
+    });
+
+    y = doc.lastAutoTable.finalY + 8;
+  }
+
+  // 6. Edge Cases & Risks
+  if (result.edgeCases && result.edgeCases.length > 0) {
+    addSectionTitle('6. Identified Edge Cases & Risks');
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9.5);
+    doc.setTextColor(180, 83, 9); // Warning amber dark
+
+    result.edgeCases.forEach((ec) => {
+      const text = `⚠️  ${ec}`;
+      const lines = doc.splitTextToSize(text, contentWidth - 4);
+      lines.forEach((line) => {
+        checkSpace(5.5);
+        doc.text(line, margin + 2, y);
+        y += 5;
+      });
+      y += 1.5;
     });
   }
 
-  // Edge Cases
-  if (result.edgeCases && result.edgeCases.length > 0) {
-    addHeading('6. Identified Edge Cases & Risks');
-    result.edgeCases.forEach((ec) => {
-      addParagraph(`⚠️ ${ec}`);
-    });
+  // Add Page Numbers Footer to all pages
+  const pageCount = doc.internal.getNumberOfPages();
+  for (let i = 1; i <= pageCount; i++) {
+    doc.setPage(i);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    doc.setTextColor(148, 163, 184); // Slate 400
+    doc.text(`AI Requirement Analyzer  |  Page ${i} of ${pageCount}`, pageWidth / 2, 290, { align: 'center' });
   }
 
   doc.save(`${cleanName}_analysis_report.pdf`);
