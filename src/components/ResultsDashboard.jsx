@@ -91,6 +91,8 @@ const MermaidViewer = ({ chartText }) => {
 const ResultsDashboard = ({ result, fileName }) => {
   const [activeTab, setActiveTab] = useState('overview');
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [saveStatus, setSaveStatus] = useState('idle'); // 'idle' | 'saving' | 'saved' | 'error'
+  const [saveMessage, setSaveMessage] = useState('');
   const dropdownRef = useRef(null);
 
   useEffect(() => {
@@ -102,6 +104,45 @@ const ResultsDashboard = ({ result, fileName }) => {
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  const handleSaveToDB = async () => {
+    setSaveStatus('saving');
+    setSaveMessage('');
+    try {
+      const response = await fetch('http://127.0.0.1:8000/api/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          filename: fileName || result.fileName || "requirement_document.pdf",
+          content_type: "application/pdf",
+          file_size_bytes: result.charCount || 0,
+          word_count: result.wordCount || 0,
+          char_count: result.charCount || 0,
+          extracted_text: result.extractedText || "",
+          analysis: {
+            summary: result.summary,
+            acceptanceCriteria: result.acceptanceCriteria,
+            tasks: result.tasks,
+            dbTables: result.dbTables,
+            apis: result.apis,
+            edgeCases: result.edgeCases,
+            sequenceDiagram: result.sequenceDiagram
+          }
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to save record to database.");
+      }
+
+      setSaveStatus('saved');
+      setSaveMessage('✅ Successfully saved to MongoDB database!');
+    } catch (err) {
+      console.error(err);
+      setSaveStatus('error');
+      setSaveMessage('❌ Failed to save to database. Check backend connection.');
+    }
+  };
 
   const handlePDF = () => {
     exportToPDF(result, fileName);
@@ -115,7 +156,7 @@ const ResultsDashboard = ({ result, fileName }) => {
 
   return (
     <div style={{ animation: 'fadeIn 0.5s ease' }}>
-      <div className="file-card glass-panel" style={{ position: 'relative' }}>
+      <div className="file-card glass-panel" style={{ position: 'relative', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
         <div className="file-info">
           <FileText className="file-icon" size={24} />
           <div>
@@ -134,77 +175,116 @@ const ResultsDashboard = ({ result, fileName }) => {
           </div>
         </div>
 
-        {/* Download Dropdown */}
-        <div ref={dropdownRef} style={{ position: 'relative' }}>
-          <button 
-            className="btn btn-secondary" 
-            onClick={() => setDropdownOpen(!dropdownOpen)}
-            style={{ padding: '0.5rem 1rem', fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+        {/* Action Buttons: Save & Download */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          {/* Save to DB permission button */}
+          <button
+            className="btn btn-primary"
+            onClick={handleSaveToDB}
+            disabled={saveStatus === 'saving' || saveStatus === 'saved'}
+            style={{
+              padding: '0.5rem 1rem',
+              fontSize: '0.875rem',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.5rem',
+              background: saveStatus === 'saved' ? 'rgba(34, 197, 94, 0.3)' : undefined,
+              borderColor: saveStatus === 'saved' ? '#4ade80' : undefined,
+              cursor: saveStatus === 'saved' ? 'default' : 'pointer'
+            }}
           >
-            <Download size={16} /> Download Result <ChevronDown size={14} />
+            <Database size={16} /> 
+            {saveStatus === 'saving' ? 'Saving...' : saveStatus === 'saved' ? 'Saved to DB' : 'Save to DB'}
           </button>
 
-          {dropdownOpen && (
-            <div style={{
-              position: 'absolute',
-              top: '110%',
-              right: 0,
-              background: '#1e293b',
-              border: '1px solid rgba(255, 255, 255, 0.15)',
-              borderRadius: '8px',
-              boxShadow: '0 10px 25px rgba(0,0,0,0.5)',
-              zIndex: 100,
-              minWidth: '180px',
-              overflow: 'hidden',
-              padding: '0.25rem 0'
-            }}>
-              <button
-                onClick={handlePDF}
-                style={{
-                  width: '100%',
-                  padding: '0.6rem 1rem',
-                  background: 'transparent',
-                  border: 'none',
-                  color: '#f8fafc',
-                  textAlign: 'left',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.6rem',
-                  cursor: 'pointer',
-                  fontSize: '0.875rem',
-                  transition: 'background 0.2s ease'
-                }}
-                onMouseEnter={(e) => e.target.style.background = 'rgba(255,255,255,0.08)'}
-                onMouseLeave={(e) => e.target.style.background = 'transparent'}
-              >
-                <FileText size={16} style={{ color: '#60a5fa' }} /> Download PDF Document
-              </button>
+          {/* Download Dropdown */}
+          <div ref={dropdownRef} style={{ position: 'relative' }}>
+            <button 
+              className="btn btn-secondary" 
+              onClick={() => setDropdownOpen(!dropdownOpen)}
+              style={{ padding: '0.5rem 1rem', fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+            >
+              <Download size={16} /> Download Result <ChevronDown size={14} />
+            </button>
 
-              <button
-                onClick={handleJSON}
-                style={{
-                  width: '100%',
-                  padding: '0.6rem 1rem',
-                  background: 'transparent',
-                  border: 'none',
-                  color: '#f8fafc',
-                  textAlign: 'left',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.6rem',
-                  cursor: 'pointer',
-                  fontSize: '0.875rem',
-                  transition: 'background 0.2s ease'
-                }}
-                onMouseEnter={(e) => e.target.style.background = 'rgba(255,255,255,0.08)'}
-                onMouseLeave={(e) => e.target.style.background = 'transparent'}
-              >
-                <FileCode size={16} style={{ color: '#4ade80' }} /> Download JSON File
-              </button>
-            </div>
-          )}
+            {dropdownOpen && (
+              <div style={{
+                position: 'absolute',
+                top: '110%',
+                right: 0,
+                background: '#1e293b',
+                border: '1px solid rgba(255, 255, 255, 0.15)',
+                borderRadius: '8px',
+                boxShadow: '0 10px 25px rgba(0,0,0,0.5)',
+                zIndex: 100,
+                minWidth: '180px',
+                overflow: 'hidden',
+                padding: '0.25rem 0'
+              }}>
+                <button
+                  onClick={handlePDF}
+                  style={{
+                    width: '100%',
+                    padding: '0.6rem 1rem',
+                    background: 'transparent',
+                    border: 'none',
+                    color: '#f8fafc',
+                    textAlign: 'left',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.6rem',
+                    cursor: 'pointer',
+                    fontSize: '0.875rem',
+                    transition: 'background 0.2s ease'
+                  }}
+                  onMouseEnter={(e) => e.target.style.background = 'rgba(255,255,255,0.08)'}
+                  onMouseLeave={(e) => e.target.style.background = 'transparent'}
+                >
+                  <FileText size={16} style={{ color: '#60a5fa' }} /> Download PDF Document
+                </button>
+
+                <button
+                  onClick={handleJSON}
+                  style={{
+                    width: '100%',
+                    padding: '0.6rem 1rem',
+                    background: 'transparent',
+                    border: 'none',
+                    color: '#f8fafc',
+                    textAlign: 'left',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.6rem',
+                    cursor: 'pointer',
+                    fontSize: '0.875rem',
+                    transition: 'background 0.2s ease'
+                  }}
+                  onMouseEnter={(e) => e.target.style.background = 'rgba(255,255,255,0.08)'}
+                  onMouseLeave={(e) => e.target.style.background = 'transparent'}
+                >
+                  <FileCode size={16} style={{ color: '#4ade80' }} /> Download JSON File
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
+
+      {saveMessage && (
+        <div style={{
+          background: saveStatus === 'saved' ? 'rgba(34, 197, 94, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+          border: `1px solid ${saveStatus === 'saved' ? 'rgba(34, 197, 94, 0.4)' : 'rgba(239, 68, 68, 0.4)'}`,
+          color: saveStatus === 'saved' ? '#4ade80' : '#f87171',
+          padding: '0.75rem 1.25rem',
+          borderRadius: '10px',
+          marginBottom: '1.5rem',
+          fontSize: '0.9rem',
+          fontWeight: '500',
+          animation: 'fadeIn 0.3s ease'
+        }}>
+          {saveMessage}
+        </div>
+      )}
 
       {!result.isLiveAI && (
         <div style={{

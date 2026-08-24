@@ -37,13 +37,22 @@ class UploadResponse(BaseModel):
 class RenamePayload(BaseModel):
     filename: str
 
+class SavePayload(BaseModel):
+    filename: str
+    content_type: Optional[str] = "unknown"
+    file_size_bytes: Optional[int] = 0
+    word_count: Optional[int] = 0
+    char_count: Optional[int] = 0
+    extracted_text: Optional[str] = ""
+    analysis: Optional[Dict[str, Any]] = None
+
 @app.get("/")
 def read_root():
     return {
         "status": "online",
         "app": "AI Requirement Analyzer API",
         "version": "1.0.0",
-        "endpoints": ["/api/upload", "/api/history", "/docs"]
+        "endpoints": ["/api/upload", "/api/save", "/api/history", "/docs"]
     }
 
 @app.post("/api/upload", response_model=UploadResponse)
@@ -51,7 +60,7 @@ async def upload_file(file: UploadFile = File(...)):
     """
     Accepts file upload (PDF, Word DOCX, Text), parses text content,
     runs Gemini AI analysis if API key is set, and returns structured analysis.
-    Saves analysis record to MongoDB if configured.
+    Does NOT save to database automatically - user approval is required.
     """
     if not file:
         raise HTTPException(status_code=400, detail="No file uploaded.")
@@ -74,19 +83,6 @@ async def upload_file(file: UploadFile = File(...)):
             )
         print(f"[Notice] Gemini API call skipped or failed: {str(e)}")
     
-    # Construct analysis record & save to MongoDB Atlas
-    record = {
-        "filename": file.filename,
-        "content_type": file.content_type or "unknown",
-        "file_size_bytes": len(extracted_text.encode('utf-8')),
-        "word_count": word_count,
-        "char_count": char_count,
-        "extracted_text": extracted_text,
-        "analysis": ai_analysis,
-        "created_at": datetime.utcnow().isoformat()
-    }
-    save_analysis(record)
-    
     return UploadResponse(
         filename=file.filename,
         content_type=file.content_type or "unknown",
@@ -97,6 +93,24 @@ async def upload_file(file: UploadFile = File(...)):
         analysis=ai_analysis,
         message="File uploaded and processed successfully."
     )
+
+@app.post("/api/save")
+def save_record(payload: SavePayload):
+    """
+    Explicitly saves an analysis record to MongoDB when approved by the user.
+    """
+    record = {
+        "filename": payload.filename,
+        "content_type": payload.content_type,
+        "file_size_bytes": payload.file_size_bytes,
+        "word_count": payload.word_count,
+        "char_count": payload.char_count,
+        "extracted_text": payload.extracted_text,
+        "analysis": payload.analysis,
+        "created_at": datetime.utcnow().isoformat()
+    }
+    rec_id = save_analysis(record)
+    return {"message": "Record saved successfully to MongoDB.", "id": rec_id}
 
 @app.get("/api/history")
 def get_history(limit: int = 50):
