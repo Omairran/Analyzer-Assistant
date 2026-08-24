@@ -14,6 +14,7 @@ Analyze the following requirement text extracted from a software document and ou
 4. "dbTables": A list of database tables, each with "name" and "columns" (list of column names).
 5. "apis": A list of REST API endpoints, each with "method" ("GET", "POST", "PUT", or "DELETE"), "endpoint" (path string), and "description".
 6. "edgeCases": A list of identified missing requirements, risks, or edge cases.
+7. "sequenceDiagram": A valid Mermaid syntax sequence diagram string starting with "sequenceDiagram" (e.g. sequenceDiagram\\n    actor User\\n    User->>Frontend: Action\\n    Frontend->>API: Request\\n    API->>DB: Query).
 
 IMPORTANT: Return ONLY valid, raw JSON matching this structure. Do not include markdown formatting or extra text outside the JSON.
 """
@@ -102,4 +103,3 @@ def analyze_requirements_with_gemini(text: str) -> dict:
         err_msg = str(e)
         print(f"[Warning] Gemini API call returned error: {err_msg}")
         raise e
-
