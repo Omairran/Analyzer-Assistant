@@ -33,7 +33,28 @@ const mockAnalysisData = {
     { method: "POST", endpoint: "/api/checkout", description: "Process a new order and payment" },
     { method: "POST", endpoint: "/api/auth/login", description: "Authenticate user and return JWT" },
     { method: "PUT", endpoint: "/api/admin/products/:id", description: "Update product details (Admin only)" }
-  ]
+  ],
+  sequenceDiagram: `sequenceDiagram
+    autonumber
+    actor User
+    participant Frontend
+    participant API as Backend API
+    participant DB as Database
+    participant Stripe as Payment Gateway
+
+    User->>Frontend: Browse Products & Add to Cart
+    Frontend->>API: GET /api/products
+    API->>DB: Query Product Catalog
+    DB-->>API: Return Products
+    API-->>Frontend: Render Product List
+
+    User->>Frontend: Click Checkout & Submit Payment
+    Frontend->>API: POST /api/checkout
+    API->>Stripe: Process Credit Card Payment
+    Stripe-->>API: Payment Confirmed (Success)
+    API->>DB: Save Order & Update Stock
+    DB-->>API: Order Saved
+    API-->>Frontend: 200 OK (Order Confirmation)`
 };
 
 function App() {
