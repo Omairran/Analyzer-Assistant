@@ -8,9 +8,85 @@ import {
   AlertCircle,
   Download,
   FileCode,
-  ChevronDown
+  ChevronDown,
+  Workflow
 } from 'lucide-react';
 import { exportToPDF, exportToJSON } from '../utils/exportHelpers';
+
+const MermaidViewer = ({ chartText }) => {
+  const containerRef = useRef(null);
+  const [svgContent, setSvgContent] = useState('');
+  const [renderError, setRenderError] = useState(null);
+
+  useEffect(() => {
+    if (!chartText) return;
+    
+    let isMounted = true;
+    const loadAndRenderMermaid = async () => {
+      try {
+        setRenderError(null);
+        // Dynamic import of mermaid to prevent bundle/install resolution blocks
+        const mermaidModule = await import('https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs');
+        const mermaid = mermaidModule.default || mermaidModule;
+        
+        mermaid.initialize({
+          startOnLoad: false,
+          theme: 'dark',
+          securityLevel: 'loose',
+          fontFamily: 'Inter, system-ui, sans-serif'
+        });
+
+        const uniqueId = `mermaid-${Math.random().toString(36).substring(2, 9)}`;
+        const cleanedChart = chartText.trim();
+        const { svg } = await mermaid.render(uniqueId, cleanedChart);
+        if (isMounted) {
+          setSvgContent(svg);
+        }
+      } catch (err) {
+        console.warn("CDN Mermaid rendering fallback to code view:", err);
+        if (isMounted) {
+          setRenderError("Visual diagram preview unavailable. Displaying raw Mermaid syntax below.");
+        }
+      }
+    };
+
+    loadAndRenderMermaid();
+    return () => { isMounted = false; };
+  }, [chartText]);
+
+  return (
+    <div>
+      {svgContent && !renderError ? (
+        <div 
+          ref={containerRef} 
+          style={{ overflowX: 'auto', padding: '1.5rem', background: 'rgba(15, 23, 42, 0.6)', borderRadius: '10px', display: 'flex', justifyContent: 'center' }}
+          dangerouslySetInnerHTML={{ __html: svgContent }} 
+        />
+      ) : renderError ? (
+        <div style={{ padding: '0.875rem 1.25rem', background: 'rgba(245, 158, 11, 0.12)', border: '1px solid rgba(245, 158, 11, 0.3)', color: '#fbbf24', borderRadius: '8px', fontSize: '0.9rem', marginBottom: '1rem' }}>
+          {renderError}
+        </div>
+      ) : (
+        <div style={{ padding: '1rem', color: 'var(--text-muted)' }}>Rendering sequence diagram...</div>
+      )}
+      
+      <div style={{ marginTop: '1.5rem' }}>
+        <h4 style={{ fontSize: '0.9rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>Mermaid Syntax Output:</h4>
+        <pre style={{ 
+          background: 'rgba(0, 0, 0, 0.3)', 
+          padding: '1rem', 
+          borderRadius: '8px', 
+          fontSize: '0.85rem', 
+          color: '#a7f3d0',
+          fontFamily: 'monospace',
+          overflowX: 'auto'
+        }}>
+          {chartText}
+        </pre>
+      </div>
+    </div>
+  );
+};
 
 const ResultsDashboard = ({ result, fileName }) => {
   const [activeTab, setActiveTab] = useState('overview');
@@ -155,7 +231,7 @@ const ResultsDashboard = ({ result, fileName }) => {
           className={`tab-btn ${activeTab === 'text' ? 'active' : ''}`}
           onClick={() => setActiveTab('text')}
         >
-          Parsed Document Text
+          Parsed Text
         </button>
         <button 
           className={`tab-btn ${activeTab === 'overview' ? 'active' : ''}`}
@@ -180,6 +256,12 @@ const ResultsDashboard = ({ result, fileName }) => {
           onClick={() => setActiveTab('api')}
         >
           API Endpoints
+        </button>
+        <button 
+          className={`tab-btn ${activeTab === 'sequence' ? 'active' : ''}`}
+          onClick={() => setActiveTab('sequence')}
+        >
+          Sequence Diagram (Mermaid)
         </button>
       </div>
 
@@ -228,7 +310,7 @@ const ResultsDashboard = ({ result, fileName }) => {
                 <h3>Acceptance Criteria</h3>
               </div>
               <ul className="criteria-list">
-                {result.acceptanceCriteria.map((criteria, idx) => (
+                {result.acceptanceCriteria?.map((criteria, idx) => (
                   <li key={idx}>
                     <CheckCircle2 className="check-icon" size={18} />
                     <span>{criteria}</span>
@@ -263,7 +345,7 @@ const ResultsDashboard = ({ result, fileName }) => {
               <h3>Generated Development Tasks</h3>
             </div>
             <div>
-              {result.tasks.map((task, idx) => (
+              {result.tasks?.map((task, idx) => (
                 <div key={idx} className="task-item">
                   <span style={{ fontWeight: '500' }}>{task.title}</span>
                   <span className={`badge badge-${task.complexity.toLowerCase()}`}>
@@ -290,7 +372,7 @@ const ResultsDashboard = ({ result, fileName }) => {
                   </tr>
                 </thead>
                 <tbody>
-                  {result.dbTables.map((table, idx) => (
+                  {result.dbTables?.map((table, idx) => (
                     <tr key={idx}>
                       <td style={{ fontWeight: '600', color: 'var(--primary-color)' }}>{table.name}</td>
                       <td>
@@ -326,7 +408,7 @@ const ResultsDashboard = ({ result, fileName }) => {
                   </tr>
                 </thead>
                 <tbody>
-                  {result.apis.map((api, idx) => (
+                  {result.apis?.map((api, idx) => (
                     <tr key={idx}>
                       <td>
                         <span className="badge badge-method">{api.method}</span>
@@ -340,6 +422,22 @@ const ResultsDashboard = ({ result, fileName }) => {
                 </tbody>
               </table>
             </div>
+          </div>
+        )}
+
+        {activeTab === 'sequence' && (
+          <div className="glass-panel section-card">
+            <div className="section-header">
+              <Workflow className="section-icon" size={20} />
+              <h3>Generated Sequence Diagram (Mermaid)</h3>
+            </div>
+            {result.sequenceDiagram ? (
+              <MermaidViewer chartText={result.sequenceDiagram} />
+            ) : (
+              <div style={{ padding: '1rem', color: 'var(--text-muted)' }}>
+                No sequence diagram generated for this document.
+              </div>
+            )}
           </div>
         )}
       </div>

@@ -109,7 +109,7 @@ const HistoryDashboard = ({ onSelectRecord, onDownloadPDF, onDownloadJSON }) => 
           <div>
             <h2 style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', fontSize: '1.5rem', margin: 0 }}>
               <History size={26} style={{ color: 'var(--primary-color)' }} />
-              Stored Requirement Records (MongoDB Cloud)
+              Stored Requirement Records
             </h2>
             <p style={{ margin: '0.4rem 0 0 0', color: 'var(--text-muted)', fontSize: '0.9rem' }}>
               All software requirement analyses stored permanently in your database. View, rename, or delete past records.
