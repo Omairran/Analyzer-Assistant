@@ -1,13 +1,12 @@
 import os
 from datetime import datetime
-from fastapi import FastAPI, File, UploadFile, HTTPException
+from typing import Optional, Dict, Any
+from fastapi import FastAPI, File, UploadFile, HTTPException, Header
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from parser import extract_text_from_file
 from ai_service import analyze_requirements_with_gemini, GeminiServerBusyError, is_503_error
 from database import save_analysis, get_all_analyses, delete_analysis, rename_analysis
-from typing import Optional, Dict, Any
-
 
 app = FastAPI(
     title="AI Requirement Analyzer API",
@@ -56,12 +55,19 @@ def read_root():
     }
 
 @app.post("/api/upload", response_model=UploadResponse)
-async def upload_file(file: UploadFile = File(...)):
+async def upload_file(
+    file: UploadFile = File(...),
+    authorization: Optional[str] = Header(None),
+    x_user_role: Optional[str] = Header(None)
+):
     """
     Accepts file upload (PDF, Word DOCX, Text), parses text content,
     runs Gemini AI analysis if API key is set, and returns structured analysis.
     Does NOT save to database automatically - user approval is required.
     """
+    if authorization:
+        print(f"[Auth Notice] Request received with token: {authorization[:15]}... Role: {x_user_role}")
+
     if not file:
         raise HTTPException(status_code=400, detail="No file uploaded.")
     

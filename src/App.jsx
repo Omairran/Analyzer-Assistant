@@ -1,11 +1,12 @@
-import { useState } from 'react';
-import { UploadCloud, FileText, Settings, History, Layers } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { UploadCloud, FileText, Settings, History, User, LogOut, ShieldCheck, Lock } from 'lucide-react';
 import UploadSection from './components/UploadSection';
 import ResultsDashboard from './components/ResultsDashboard';
 import HistoryDashboard from './components/HistoryDashboard';
+import AuthModal from './components/AuthModal';
 import { exportToPDF, exportToJSON } from './utils/exportHelpers';
 
-// Mock JSON analysis response
+// Mock JSON analysis fallback response
 const mockAnalysisData = {
   summary: "This requirement document describes a web-based e-commerce platform where users can browse products, add them to a cart, and checkout using a credit card. It includes user authentication and an admin panel for inventory management.",
   acceptanceCriteria: [
@@ -64,6 +65,29 @@ function App() {
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
 
+  // Authentication State
+  const [currentUser, setCurrentUser] = useState(() => {
+    const saved = localStorage.getItem('analyzer_user');
+    return saved ? JSON.parse(saved) : null;
+  });
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+
+  useEffect(() => {
+    if (currentUser) {
+      localStorage.setItem('analyzer_user', JSON.stringify(currentUser));
+    } else {
+      localStorage.removeItem('analyzer_user');
+    }
+  }, [currentUser]);
+
+  const handleLogin = (userData) => {
+    setCurrentUser(userData);
+  };
+
+  const handleLogout = () => {
+    setCurrentUser(null);
+  };
+
   const handleFileUpload = (uploadedFile) => {
     setFile(uploadedFile);
     setError(null);
@@ -71,6 +95,11 @@ function App() {
 
   const handleAnalyze = async () => {
     if (!file) return;
+
+    if (!currentUser) {
+      setIsAuthModalOpen(true);
+      return;
+    }
     
     setAnalyzing(true);
     setError(null);
@@ -81,6 +110,10 @@ function App() {
     try {
       const response = await fetch('http://127.0.0.1:8000/api/upload', {
         method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${currentUser.token}`,
+          'X-User-Role': currentUser.role,
+        },
         body: formData,
       });
 
@@ -180,6 +213,45 @@ function App() {
               Analyze New File
             </button>
           )}
+
+          {/* User Auth Info / Login Button */}
+          <div style={{ borderLeft: '1px solid rgba(255,255,255,0.1)', paddingLeft: '0.75rem', marginLeft: '0.25rem' }}>
+            {currentUser ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.4rem',
+                  background: 'rgba(99, 102, 241, 0.15)',
+                  border: '1px solid rgba(99, 102, 241, 0.3)',
+                  padding: '0.35rem 0.75rem',
+                  borderRadius: '20px',
+                  fontSize: '0.8rem',
+                  color: '#fff'
+                }}>
+                  <ShieldCheck size={14} style={{ color: 'var(--primary-color)' }} />
+                  <span style={{ fontWeight: 600 }}>{currentUser.username}</span>
+                  <span style={{ opacity: 0.6, fontSize: '0.75rem' }}>({currentUser.role})</span>
+                </div>
+                <button 
+                  onClick={handleLogout}
+                  title="Sign Out"
+                  className="btn btn-secondary"
+                  style={{ padding: '0.4rem 0.6rem', fontSize: '0.8rem', color: 'var(--text-muted)' }}
+                >
+                  <LogOut size={14} />
+                </button>
+              </div>
+            ) : (
+              <button 
+                className="btn btn-secondary" 
+                onClick={() => setIsAuthModalOpen(true)}
+                style={{ padding: '0.5rem 0.85rem', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}
+              >
+                <User size={15} /> Sign In
+              </button>
+            )}
+          </div>
         </div>
       </header>
 
@@ -201,14 +273,26 @@ function App() {
                 <FileText size={64} style={{ color: 'var(--primary-color)', margin: '0 auto 1.5rem auto' }} />
                 <h2>Ready to Analyze</h2>
                 <p>"{file.name}" is loaded and ready for AI processing.</p>
+
+                {!currentUser && (
+                  <div style={{ marginTop: '1rem', padding: '0.75rem', background: 'rgba(99, 102, 241, 0.1)', border: '1px dashed var(--primary-color)', borderRadius: '8px', color: 'var(--primary-color)', fontSize: '0.875rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
+                    <Lock size={16} /> Sign in required before initiating AI requirement extraction.
+                  </div>
+                )}
+
                 {error && (
                   <div style={{ marginTop: '1.5rem', padding: '1rem', background: 'rgba(239, 68, 68, 0.1)', border: '1px solid var(--danger-color)', borderRadius: '8px', color: 'var(--danger-color)', textAlign: 'center', fontWeight: '500' }}>
                     {error}
                   </div>
                 )}
+                
                 <div style={{ marginTop: '2rem' }}>
-                   <button className="btn btn-primary" onClick={handleAnalyze} style={{ width: '100%' }}>
-                    Start Analysis Process
+                   <button 
+                    className="btn btn-primary" 
+                    onClick={handleAnalyze} 
+                    style={{ width: '100%' }}
+                  >
+                    {currentUser ? 'Start Analysis Process' : 'Sign In & Start Analysis'}
                   </button>
                 </div>
               </div>
@@ -228,6 +312,12 @@ function App() {
           </>
         )}
       </main>
+
+      <AuthModal 
+        isOpen={isAuthModalOpen} 
+        onClose={() => setIsAuthModalOpen(false)} 
+        onLogin={handleLogin} 
+      />
     </div>
   );
 }
