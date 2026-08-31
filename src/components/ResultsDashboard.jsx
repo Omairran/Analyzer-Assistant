@@ -12,6 +12,7 @@ import {
   Workflow
 } from 'lucide-react';
 import { exportToPDF, exportToJSON } from '../utils/exportHelpers';
+import { API_BASE_URL } from '../config';
 
 const MermaidViewer = ({ chartText }) => {
   const containerRef = useRef(null);
@@ -109,7 +110,7 @@ const ResultsDashboard = ({ result, fileName }) => {
     setSaveStatus('saving');
     setSaveMessage('');
     try {
-      const response = await fetch('http://127.0.0.1:8000/api/save', {
+      const response = await fetch(`${API_BASE_URL}/api/save`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

@@ -5,6 +5,7 @@ import ResultsDashboard from './components/ResultsDashboard';
 import HistoryDashboard from './components/HistoryDashboard';
 import AuthModal from './components/AuthModal';
 import { exportToPDF, exportToJSON } from './utils/exportHelpers';
+import { API_BASE_URL } from './config';
 
 // Mock JSON analysis fallback response
 const mockAnalysisData = {
@@ -108,7 +109,7 @@ function App() {
     formData.append('file', file);
 
     try {
-      const response = await fetch('http://127.0.0.1:8000/api/upload', {
+      const response = await fetch(`${API_BASE_URL}/api/upload`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${currentUser.token}`,

@@ -14,6 +14,7 @@ import {
   X,
   AlertTriangle
 } from 'lucide-react';
+import { API_BASE_URL } from '../config';
 
 const HistoryDashboard = ({ onSelectRecord, onDownloadPDF, onDownloadJSON }) => {
   const [history, setHistory] = useState([]);
@@ -32,7 +33,7 @@ const HistoryDashboard = ({ onSelectRecord, onDownloadPDF, onDownloadJSON }) => 
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch('http://127.0.0.1:8000/api/history');
+      const response = await fetch(`${API_BASE_URL}/api/history`);
       if (!response.ok) {
         throw new Error('Failed to fetch history from backend');
       }
@@ -52,7 +53,7 @@ const HistoryDashboard = ({ onSelectRecord, onDownloadPDF, onDownloadJSON }) => 
 
   const handleDeleteRecord = async (recordId) => {
     try {
-      const response = await fetch(`http://127.0.0.1:8000/api/history/${recordId}`, {
+      const response = await fetch(`${API_BASE_URL}/api/history/${recordId}`, {
         method: 'DELETE'
       });
       if (response.ok) {
@@ -75,7 +76,7 @@ const HistoryDashboard = ({ onSelectRecord, onDownloadPDF, onDownloadJSON }) => 
   const handleSaveRename = async (recordId) => {
     if (!editingName.trim()) return;
     try {
-      const response = await fetch(`http://127.0.0.1:8000/api/history/${recordId}`, {
+      const response = await fetch(`${API_BASE_URL}/api/history/${recordId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ filename: editingName.trim() })
