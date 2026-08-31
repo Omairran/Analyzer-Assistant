@@ -58,7 +58,7 @@ def analyze_requirements_with_gemini(text: str) -> dict:
         
         response = None
         # Try candidate model names for compatibility
-        models_to_try = ['gemini-2.5-flash', 'gemini-1.5-flash', 'gemini-3.6-flash']
+        models_to_try = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-2.5-flash']
         last_err = None
         
         for model_name in models_to_try:
