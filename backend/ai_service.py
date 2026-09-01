@@ -63,7 +63,7 @@ def analyze_requirements_with_gemini(text: str) -> dict:
             client = genai.Client(api_key=api_key)
             prompt = f"{SYSTEM_PROMPT}\n\nREQUIREMENT DOCUMENT TEXT:\n{text[:10000]}"
             
-            models_to_try = ['gemini-2.5-flash', 'gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-2.0-flash-exp', 'gemini-3.6-flash']
+            models_to_try = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-2.5-flash']
             for model_name in models_to_try:
                 try:
                     res = client.models.generate_content(
@@ -76,11 +76,19 @@ def analyze_requirements_with_gemini(text: str) -> dict:
                         break
                 except Exception as err:
                     last_err = err
+                    err_upper = str(err).upper()
                     print(f"[Gemini Info] Model {model_name} unavailable: {err}")
                     if is_503_error(err):
                         raise GeminiServerBusyError("⚠️ Server is busy. Please try again in a few moments.") from err
+                    if any(kw in err_upper for kw in ["PERMISSION_DENIED", "UNAUTHENTICATED", "403", "401", "INVALID_API_KEY", "LEAKED", "RESOURCE_EXHAUSTED", "QUOTA"]):
+                        raise err
                     continue
+        except GeminiServerBusyError:
+            raise
         except (ImportError, Exception) as genai_err:
+            err_upper = str(genai_err).upper()
+            if any(kw in err_upper for kw in ["PERMISSION_DENIED", "UNAUTHENTICATED", "403", "401", "INVALID_API_KEY", "LEAKED", "RESOURCE_EXHAUSTED", "QUOTA"]):
+                raise genai_err
             last_err = genai_err
 
         # Attempt 2: Fallback to google.generativeai SDK if needed
