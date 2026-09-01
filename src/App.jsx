@@ -124,32 +124,32 @@ function App() {
           <span>AI Requirement Analyzer</span>
         </div>
 
-        {/* View Toggle Tabs */}
-        <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
-          <button 
-            className={`btn ${activeView === 'upload' ? 'btn-primary' : 'btn-secondary'}`}
-            onClick={() => setActiveView('upload')}
-            style={{ padding: '0.5rem 1rem', fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}
-          >
-            <UploadCloud size={16} /> New Analysis
-          </button>
-          
-          <button 
-            className={`btn ${activeView === 'history' ? 'btn-primary' : 'btn-secondary'}`}
-            onClick={() => setActiveView('history')}
-            style={{ padding: '0.5rem 1rem', fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}
-          >
-            <History size={16} /> Saved Records (MongoDB)
-          </button>
-
-          {result && activeView === 'upload' && (
-            <button className="btn btn-secondary" onClick={handleReset} style={{ padding: '0.5rem 1rem', fontSize: '0.875rem' }}>
-              Analyze New File
+        {/* View Toggle Tabs & Auth */}
+        <div className="header-actions">
+          <div className="header-nav-btns">
+            <button 
+              className={`btn ${activeView === 'upload' ? 'btn-primary' : 'btn-secondary'}`}
+              onClick={() => setActiveView('upload')}
+            >
+              <UploadCloud size={16} /> New Analysis
             </button>
-          )}
+            
+            <button 
+              className={`btn ${activeView === 'history' ? 'btn-primary' : 'btn-secondary'}`}
+              onClick={() => setActiveView('history')}
+            >
+              <History size={16} /> Saved Records
+            </button>
+
+            {result && activeView === 'upload' && (
+              <button className="btn btn-secondary" onClick={handleReset}>
+                New File
+              </button>
+            )}
+          </div>
 
           {/* User Auth Info / Login Button */}
-          <div style={{ borderLeft: '1px solid rgba(255,255,255,0.1)', paddingLeft: '0.75rem', marginLeft: '0.25rem' }}>
+          <div className="auth-info-container">
             {currentUser ? (
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                 <div style={{

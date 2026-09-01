@@ -171,7 +171,7 @@ const ResultsDashboard = ({ result, fileName }) => {
         </div>
 
         {/* Action Buttons: Save & Download */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+        <div className="file-actions">
           {/* Save to DB permission button */}
           <button
             className="btn btn-primary"
