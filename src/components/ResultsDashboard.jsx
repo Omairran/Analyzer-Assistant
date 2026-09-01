@@ -163,15 +163,9 @@ const ResultsDashboard = ({ result, fileName }) => {
           <div>
             <div className="file-name">{fileName || "requirement_document.pdf"}</div>
             <div className="file-size" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.25rem' }}>
-              {result.isLiveAI ? (
-                <span style={{ background: 'rgba(34, 197, 94, 0.2)', color: '#4ade80', padding: '0.2rem 0.6rem', borderRadius: '12px', fontSize: '0.8rem', border: '1px solid rgba(34, 197, 94, 0.4)' }}>
-                  ✨ Powered by Live Gemini AI
-                </span>
-              ) : (
-                <span style={{ background: 'rgba(245, 158, 11, 0.2)', color: '#fbbf24', padding: '0.2rem 0.6rem', borderRadius: '12px', fontSize: '0.8rem', border: '1px solid rgba(245, 158, 11, 0.4)' }}>
-                  ⚠️ Mock Data Fallback
-                </span>
-              )}
+              <span style={{ background: 'rgba(34, 197, 94, 0.2)', color: '#4ade80', padding: '0.2rem 0.6rem', borderRadius: '12px', fontSize: '0.8rem', border: '1px solid rgba(34, 197, 94, 0.4)' }}>
+                ✨ Powered by Gemini AI
+              </span>
             </div>
           </div>
         </div>
@@ -287,25 +281,7 @@ const ResultsDashboard = ({ result, fileName }) => {
         </div>
       )}
 
-      {!result.isLiveAI && (
-        <div style={{
-          background: 'rgba(245, 158, 11, 0.12)',
-          border: '1px solid rgba(245, 158, 11, 0.3)',
-          color: '#fbbf24',
-          padding: '0.875rem 1.25rem',
-          borderRadius: '10px',
-          marginBottom: '1.5rem',
-          fontSize: '0.9rem',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '0.75rem'
-        }}>
-          <AlertCircle size={20} style={{ flexShrink: 0 }} />
-          <span>
-            <strong>Note:</strong> Showing fallback mock analysis because Gemini API key check failed or returned an error.
-          </span>
-        </div>
-      )}
+
 
       <div className="tabs-container">
         <button 

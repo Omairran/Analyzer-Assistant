@@ -44,6 +44,21 @@ def test_upload_text_file():
         assert res.word_count > 0
         assert "authentication API" in res.extracted_text
 
+def test_gemini_api_failure():
+    """Test that backend raises HTTPException when Gemini API call fails."""
+    from fastapi import HTTPException
+    sample_text = "Sample requirement text"
+    file_bytes = sample_text.encode("utf-8")
+    upload_file_obj = UploadFile(filename="test.txt", file=io.BytesIO(file_bytes))
+
+    with patch("main.analyze_requirements_with_gemini", side_effect=ValueError("Invalid API key")):
+        try:
+            asyncio.run(upload_file(file=upload_file_obj, authorization="Bearer test-token", x_user_role="Analyst"))
+            assert False, "Should have raised HTTPException"
+        except HTTPException as exc:
+            assert exc.status_code == 502
+            assert "Gemini API is not responding" in exc.detail
+
 def test_database_get_all_analyses():
     """Test retrieving database history records."""
     records = get_all_analyses(limit=10)
@@ -55,6 +70,8 @@ if __name__ == "__main__":
     print("[PASS] test_read_root passed.")
     test_upload_text_file()
     print("[PASS] test_upload_text_file passed.")
+    test_gemini_api_failure()
+    print("[PASS] test_gemini_api_failure passed.")
     test_database_get_all_analyses()
     print("[PASS] test_database_get_all_analyses passed.")
     print("\n--- ALL BACKEND API TESTS PASSED SUCCESSFULLY ---")

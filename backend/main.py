@@ -65,7 +65,7 @@ async def upload_file(
     runs Gemini AI analysis if API key is set, and returns structured analysis.
     Does NOT save to database automatically - user approval is required.
     """
-    if authorization:
+    if authorization and isinstance(authorization, str):
         print(f"[Auth Notice] Request received with token: {authorization[:15]}... Role: {x_user_role}")
 
     if not file:
@@ -85,9 +85,20 @@ async def upload_file(
         if is_503_error(e):
             raise HTTPException(
                 status_code=503,
-                detail="⚠️ Server is busy. Please try again in a few moments."
+                detail="⚠️ Gemini API server is busy. Please try again in a few moments."
             )
-        print(f"[Notice] Gemini API call skipped or failed: {str(e)}")
+        err_msg = str(e)
+        print(f"[Gemini Error] API call failed: {err_msg}")
+        raise HTTPException(
+            status_code=502,
+            detail=f"⚠️ Gemini API is not responding: {err_msg if err_msg else 'Failed to generate AI analysis'}. Please try again."
+        )
+
+    if not ai_analysis:
+        raise HTTPException(
+            status_code=502,
+            detail="⚠️ Gemini API did not return analysis data. Please try again."
+        )
     
     return UploadResponse(
         filename=file.filename,

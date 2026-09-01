@@ -1,63 +1,11 @@
 import { useState, useEffect } from 'react';
-import { UploadCloud, FileText, Settings, History, User, LogOut, ShieldCheck, Lock } from 'lucide-react';
+import { UploadCloud, FileText, Settings, History, User, LogOut, ShieldCheck, Lock, RotateCcw, AlertCircle } from 'lucide-react';
 import UploadSection from './components/UploadSection';
 import ResultsDashboard from './components/ResultsDashboard';
 import HistoryDashboard from './components/HistoryDashboard';
 import AuthModal from './components/AuthModal';
 import { exportToPDF, exportToJSON } from './utils/exportHelpers';
 import { API_BASE_URL } from './config';
-
-// Mock JSON analysis fallback response
-const mockAnalysisData = {
-  summary: "This requirement document describes a web-based e-commerce platform where users can browse products, add them to a cart, and checkout using a credit card. It includes user authentication and an admin panel for inventory management.",
-  acceptanceCriteria: [
-    "User can browse products by category.",
-    "User can add products to a shopping cart and view cart total.",
-    "User can proceed to checkout and enter shipping details securely.",
-    "User can pay using a credit card via Stripe integration.",
-    "Admin can add, edit, or remove products from the inventory."
-  ],
-  tasks: [
-    { title: "Implement product listing and filtering", complexity: "Medium" },
-    { title: "Build shopping cart state management", complexity: "High" },
-    { title: "Integrate Stripe payment gateway", complexity: "High" },
-    { title: "Create user authentication flow (JWT)", complexity: "Medium" },
-    { title: "Build Admin dashboard for inventory", complexity: "Medium" }
-  ],
-  dbTables: [
-    { name: "Users", columns: ["id", "email", "password_hash", "role"] },
-    { name: "Products", columns: ["id", "name", "description", "price", "stock_count", "category_id"] },
-    { name: "Orders", columns: ["id", "user_id", "total_amount", "status", "created_at"] },
-    { name: "OrderItems", columns: ["id", "order_id", "product_id", "quantity", "price_at_purchase"] }
-  ],
-  apis: [
-    { method: "GET", endpoint: "/api/products", description: "List all products with optional filters" },
-    { method: "POST", endpoint: "/api/checkout", description: "Process a new order and payment" },
-    { method: "POST", endpoint: "/api/auth/login", description: "Authenticate user and return JWT" },
-    { method: "PUT", endpoint: "/api/admin/products/:id", description: "Update product details (Admin only)" }
-  ],
-  sequenceDiagram: `sequenceDiagram
-    autonumber
-    actor User
-    participant Frontend
-    participant API as Backend API
-    participant DB as Database
-    participant Stripe as Payment Gateway
-
-    User->>Frontend: Browse Products & Add to Cart
-    Frontend->>API: GET /api/products
-    API->>DB: Query Product Catalog
-    DB-->>API: Return Products
-    API-->>Frontend: Render Product List
-
-    User->>Frontend: Click Checkout & Submit Payment
-    Frontend->>API: POST /api/checkout
-    API->>Stripe: Process Credit Card Payment
-    Stripe-->>API: Payment Confirmed (Success)
-    API->>DB: Save Order & Update Stock
-    DB-->>API: Order Saved
-    API-->>Frontend: 200 OK (Order Confirmation)`
-};
 
 function App() {
   const [activeView, setActiveView] = useState('upload'); // 'upload' | 'history'
@@ -127,46 +75,31 @@ function App() {
       }
 
       const parseData = await response.json();
-      const hasLiveAnalysis = Boolean(parseData.analysis);
-      const aiResult = parseData.analysis || mockAnalysisData;
+      if (!parseData.analysis) {
+        throw new Error("Gemini API did not return analysis data. Please try again.");
+      }
 
       setResult({
-        ...aiResult,
-        isLiveAI: hasLiveAnalysis,
+        ...parseData.analysis,
+        isLiveAI: true,
         extractedText: parseData.extracted_text,
         wordCount: parseData.word_count,
         charCount: parseData.char_count,
         fileName: parseData.filename,
       });
     } catch (err) {
-      const isServerBusy = 
-        err.status === 503 || 
-        err.message?.includes("Server is busy") || 
-        err.message?.includes("503") || 
-        err.message?.includes("UNAVAILABLE");
-
-      if (isServerBusy) {
-        setError("⚠️ Server is busy. Please try again in a few moments.");
-        setResult(null);
-      } else {
-        console.warn("FastAPI service offline or error, using mock fallback:", err.message);
-        setResult({
-          ...mockAnalysisData,
-          isLiveAI: false,
-          extractedText: `[Uploaded File: ${file.name}]\n\nRequirement Document Content:\nThis document outlines user registration, product browsing, shopping cart implementation, payment gateway integration, and admin portal requirements.`,
-          wordCount: 350,
-          charCount: 2200,
-          fileName: file.name,
-        });
-      }
+      console.error("Gemini AI Analysis Error:", err);
+      setResult(null); // Ensure NO demo/mock data is shown when API fails
+      setError(err.message || "⚠️ Gemini API is not responding. Please try again.");
     } finally {
       setAnalyzing(false);
     }
   };
 
   const handleSelectHistoryRecord = (record) => {
+    if (!record || !record.analysis) return;
     setResult({
-      ...(record.analysis || mockAnalysisData),
+      ...record.analysis,
       isLiveAI: true,
       extractedText: record.extracted_text,
       wordCount: record.word_count,
@@ -282,19 +215,49 @@ function App() {
                 )}
 
                 {error && (
-                  <div style={{ marginTop: '1.5rem', padding: '1rem', background: 'rgba(239, 68, 68, 0.1)', border: '1px solid var(--danger-color)', borderRadius: '8px', color: 'var(--danger-color)', textAlign: 'center', fontWeight: '500' }}>
-                    {error}
+                  <div style={{
+                    marginTop: '1.5rem',
+                    padding: '1.25rem',
+                    background: 'rgba(239, 68, 68, 0.12)',
+                    border: '1px solid rgba(239, 68, 68, 0.4)',
+                    borderRadius: '10px',
+                    color: '#f87171',
+                    textAlign: 'center',
+                    fontWeight: '500',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    gap: '0.75rem'
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.95rem' }}>
+                      <AlertCircle size={22} style={{ flexShrink: 0 }} />
+                      <span>{error}</span>
+                    </div>
                   </div>
                 )}
                 
-                <div style={{ marginTop: '2rem' }}>
-                   <button 
+                <div style={{ marginTop: '2rem', display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+                  <button 
                     className="btn btn-primary" 
                     onClick={handleAnalyze} 
-                    style={{ width: '100%' }}
+                    style={{ flex: 1, minWidth: '200px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}
                   >
-                    {currentUser ? 'Start Analysis Process' : 'Sign In & Start Analysis'}
+                    {error ? (
+                      <><RotateCcw size={18} /> Retry Analysis</>
+                    ) : (
+                      currentUser ? 'Start Analysis Process' : 'Sign In & Start Analysis'
+                    )}
                   </button>
+
+                  {error && (
+                    <button 
+                      className="btn btn-secondary" 
+                      onClick={handleReset}
+                      style={{ padding: '0.75rem 1.25rem' }}
+                    >
+                      Change File
+                    </button>
+                  )}
                 </div>
               </div>
             )}
